@@ -1,5 +1,5 @@
-If you're using Java 8, you need to get the Java 8 branch from here (now includes unit tests):
-https://github.com/GlenKPeterson/fp4java7/tree/2014-03-02_java8
+You are on the Java 7 legacy support branch of this project.  If you're using Java 8 or later, get the master branch from here:
+https://github.com/GlenKPeterson/fp4java7
 
 #Usage
 
