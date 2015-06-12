@@ -14,247 +14,17 @@
 
 package org.organicdesign.fp;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.function.Predicate;
-
-import org.organicdesign.fp.ephemeral.View;
 
 /**
- Utilities that functional programmers would want, but aren't supplied in Java 7 (or 8)
+ A couple utilities that aren't supplied in Java.  Most of these have been moved to other classes.  For instance,
+ toString(Iterable) has been moved to UnIterable.  All the functions for composing predicates are now on Function1.
  */
 public class FunctionUtils {
 
     // I don't want any instances of this class.
     private FunctionUtils() {}
 
-    /** A predicate that always returns true.  Use accept() for a type-safe version of this predicate. */
-    public static final Predicate<Object> ACCEPT = new Predicate<Object>() {
-        @Override
-        public boolean test(Object t) {
-            return true;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public Predicate<Object> and(Predicate<? super Object> other) {
-            return (Predicate<Object>) other;
-        }
-
-        @Override
-        public Predicate<Object> negate() {
-            return REJECT;
-        }
-
-        @Override
-        public Predicate<Object> or(Predicate<? super Object> other) {
-            return this;
-        }
-    };
-
-    /** A predicate that always returns false. Use reject() for a type-safe version of this predicate. */
-    public static final Predicate<Object> REJECT = new Predicate<Object>() {
-        @Override
-        public boolean test(Object t) {
-            return false;
-        }
-
-        @Override
-        public Predicate<Object> and(Predicate<? super Object> other) {
-            return this;
-        }
-
-        @Override
-        public Predicate<Object> negate() {
-            return ACCEPT;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public Predicate<Object> or(Predicate<? super Object> other) {
-            return (Predicate<Object>) other;
-        }
-    };
-
-    /** Returns a type-safe version of the ACCEPT predicate. */
-    @SuppressWarnings("unchecked")
-    public static <T> Predicate<T> accept() { return (Predicate<T>) ACCEPT; }
-
-    /** Returns a type-safe version of the REJECT predicate. */
-    @SuppressWarnings("unchecked")
-    public static <T> Predicate<T> reject() { return (Predicate<T>) REJECT; }
-
-    // For forced exit from a forEach.
-    private static class EndException extends RuntimeException {}
-
-    /**
-     Composes multiple predicates into a single predicate to potentially minimize trips through
-     the source data.  The resultant predicate will loop through the predicates for each item in
-     the source, but for few predicates and many source items, that takes less memory.  Considers
-     no predicate to mean "accept all."  Use only accept()/ACCEPT and reject()/REJECT since
-     function comparison is done by reference.
-
-     @param in the predicates to test in order.  Nulls and ACCEPT predicates are ignored.  Any
-     REJECT predicate will cause this entire method to return a single REJECT predicate.  No
-     predicates means ACCEPT.
-
-     @param <T> the type of object to predicate on.
-
-     @return a predicate which returns true if all the input predicates return true, false otherwise.
-     */
-    public static <T> Predicate<T> and(View<Predicate<T>> in) {
-        if ( (in == null) || (in == View.EMPTY_VIEW) ) {
-            return accept();
-        }
-        final List<Predicate<T>> out = new ArrayList<>();
-        // I can't seem to iterate through a View here, so I'm using an exception to terminate
-        // the loop.
-        try {
-            in.filter(f -> (f != null) && (f != ACCEPT))
-                    .forEach(f -> {
-                        // One reject in an and-list means to always reject.
-                        if (f == REJECT) {
-                            throw new EndException();
-                        }
-                        out.add(f);
-                    });
-        } catch (EndException ee) {
-            return reject();
-        }
-        if (out.size() < 1) {
-            return accept(); // No predicates means to accept all.
-        } else if (out.size() == 1) {
-            return out.get(0);
-        } else {
-            return t -> {
-                for (Predicate<T> f : out) {
-                    if (!f.test(t)) {
-                        return false;
-                    }
-                }
-                return true;
-            };
-        }
-    }
-
-    /** A convenience wrapper for and().  This may be a bad idea.  Not sure yet. */
-    @SafeVarargs // Not really sure how safe these varargs are...
-    public static <T> Predicate<T> andArray(Predicate<T>... in) {
-        return and(View.ofArray(in));
-    }
-
-    /**
-     Composes multiple predicates into a single predicate to potentially minimize trips through
-     the source data.  The resultant predicate will loop through the predicates for each item in
-     the source, but for few predicates and many source items, that takes less memory.  Considers
-     no predicate to mean "reject all."  Use only accept()/ACCEPT and reject()/REJECT since
-     function comparison is done by reference.
-
-     @param in the predicates to test in order.  Nulls and REJECT predicates are ignored.  Any
-     ACCEPT predicate will cause this entire method to return the ACCEPT predicate.
-     No predicates means REJECT.
-
-     @param <T> the type of object to predicate on.
-
-     @return a predicate which returns true if any of the input predicates return true,
-     false otherwise.
-     */
-    public static <T> Predicate<T> or(View<Predicate<T>> in) {
-        if ( (in == null) || (in == View.EMPTY_VIEW) ) {
-            return reject();
-        }
-        final List<Predicate<T>> out = new ArrayList<>();
-        try {
-            in.filter(f -> (f != null) && (f != REJECT))
-                    .forEach(f -> {
-                        // One accept in an or-list means to always accept.
-                        if (f == ACCEPT) {
-                            throw new EndException();
-                        }
-                        out.add(f);
-                    });
-        } catch (EndException ee) {
-            return accept();
-        }
-        if (out.size() < 1) {
-            return reject(); // No predicates means to reject all.
-        } else if (out.size() == 1) {
-            return out.get(0);
-        } else {
-            return t -> {
-                for (Predicate<T> f : out) {
-                    if (f.test(t)) {
-                        return true;
-                    }
-                }
-                return false;
-            };
-        }
-    }
-
-    /** A convenience wrapper for of().  This may be a bad idea.  Not sure yet. */
-    @SafeVarargs
-    public static <T> Predicate<T> orArray(Predicate<T>... in) {
-        return or(View.ofArray(in));
-    }
-
-    /**
-     A function that returns its input unchanged.
-     Use identity() for a type-safe version of this function.
-     */
-    public static final Function<?,?> IDENTITY = new Function<Object,Object>() {
-
-        @Override
-        public Object apply(Object t) {
-            return t;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public <V> Function<V, Object> compose(Function<? super V, ?> before) {
-            // Composing any function with the identity function has no effect on the original
-            // function (by definition of identity) - just return it.
-            return (Function<V, Object>) before;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public <V> Function<Object, V> andThen(Function<? super Object, ? extends V> after) {
-            return (Function<Object, V>) after;
-        }
-    };
-
-    /** Returns a type-safe version of the IDENTITY function. */
-    @SuppressWarnings("unchecked")
-    public static <T> Function<T,T> identity() { return (Function<T,T>) IDENTITY; }
-
-    /** Returns a String showing the type and first few elements of a Collection */
-    public static <T> String toString(Iterable<T> iterable) {
-        if (iterable == null) {
-            return "null";
-        }
-        StringBuilder sB = new StringBuilder();
-
-        sB.append(iterable.getClass().getSimpleName());
-        sB.append("(");
-
-        int i = 0;
-        for (T item : iterable) {
-            if (i > 4) {
-                sB.append("...");
-                break;
-            } else if (i > 0) {
-                sB.append(",");
-            }
-            sB.append(String.valueOf(item));
-            i++;
-        }
-
-        sB.append(")");
-        return sB.toString();
-    }
 
     /** Returns a String showing the type and first few elements of a map */
     public static <A,B> String toString(Map<A,B> map) {
@@ -269,7 +39,7 @@ public class FunctionUtils {
         int i = 0;
         for (Map.Entry<A,B> item : map.entrySet()) {
             if (i > 4) {
-                sB.append("...");
+                sB.append(",...");
                 break;
             } else if (i > 0) {
                 sB.append(",");
@@ -292,8 +62,9 @@ public class FunctionUtils {
         sB.append("Array");
 
         if ( (as.length > 0) && (as[0] != null) ) {
-            sB.append(" of ");
+            sB.append("<");
             sB.append(as[0].getClass().getSimpleName());
+            sB.append(">");
         }
 
         sB.append("(");
@@ -301,7 +72,7 @@ public class FunctionUtils {
         int i = 0;
         for (Object item : as) {
             if (i > 4) {
-                sB.append("...");
+                sB.append(",...");
                 break;
             } else if (i > 0) {
                 sB.append(",");
@@ -313,4 +84,101 @@ public class FunctionUtils {
         sB.append(")");
         return sB.toString();
     }
+
+//    public static String truncateIfNecessary(String in, int maxLen) {
+//        if ( (in == null) || (in.length() <= maxLen) ) {
+//            return in;
+//        }
+//        return in.substring(0, maxLen);
+//    }
+//
+//    public static Date earliestOrNull(Date... dates) {
+//        if ( (dates == null) || (dates.length < 1) ) {
+//            return null;
+//        }
+//        Date earliest = null;
+//        for (Date date : dates) {
+//            if (earliest == null) {
+//                earliest = date;
+//            } else if ((date != null) && (date.before(earliest)) ) {
+//                earliest = date;
+//            }
+//        }
+//        return earliest;
+//    }
+//
+//    public enum EnglishListType {
+//        AND("and"),
+//        OR("or");
+//        public final String word;
+//        EnglishListType(String s) {
+//            word = s;
+//        }
+//    }
+//
+//    public static String unsafeEnglishList(Collection<?> rips, EnglishListType type) {
+//        if ( (rips == null) || (rips.size() < 1) ) {
+//            return "";
+//        }
+//        StringBuilder sB = new StringBuilder();
+//        int i = 0;
+//        for (Object rip : rips) {
+//            i++;
+//            if (i > 1) {
+//                if (rips.size() > 2) {
+//                    // if there are three or more rips, print with commas
+//                    // between all but the last two - they get ", and "
+//                    if (i < rips.size()) {
+//                        sB.concat(", ");
+//                    } else {
+//                        // The serial comma!
+//                        sB.concat(", ");
+//                        sB.concat(type.word);
+//                        sB.concat(" ");
+//                    }
+//                } else if ( (rips.size() == 2) && (i == 2) ) {
+//                    // If there are two rips, print with " and " inbetween
+//                    sB.concat(" ");
+//                    sB.concat(type.word);
+//                    sB.concat(" ");
+//                }
+//            }
+//            // print it.  This is safe because these strings are hard-coded
+//            // above, do not come from the user, and are HTML-safe.
+//            sB.concat(rip.toString());
+//        }
+//        return sB.toString();
+//    }
+//
+//    public static String commaSepList(Iterable<?> is) {
+//        StringBuilder sB = new StringBuilder();
+//        boolean isFirst = true;
+//        for (Object o : is) {
+//            if (isFirst) {
+//                isFirst = false;
+//            } else {
+//                sB.concat(", ");
+//            }
+//            sB.concat(String.valueOf(o));
+//        }
+//        return sB.toString();
+//    }
+
+    public static String ordinal(final int origI) {
+        final int i = (origI < 0) ? -origI : origI;
+        final int modTen = i % 10;
+        if ( (modTen < 4) && (modTen > 0)) {
+            int modHundred = i % 100;
+            if ( (modHundred < 21) && (modHundred > 3) ) {
+                return Integer.toString(origI) + "th";
+            }
+            switch (modTen) {
+                case 1: return Integer.toString(origI) + "st";
+                case 2: return Integer.toString(origI) + "nd";
+                case 3: return Integer.toString(origI) + "rd";
+            }
+        }
+        return Integer.toString(origI) + "th";
+    }
+
 }

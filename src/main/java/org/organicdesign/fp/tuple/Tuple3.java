@@ -14,65 +14,50 @@
 
 package org.organicdesign.fp.tuple;
 
-public class Tuple3<T,U,V> {
+import java.util.Objects;
+
+/**
+ Holds 3 items of potentially different types.
+ */
+public final class Tuple3<T,U,V> {
     private final T _1;
     private final U _2;
     private final V _3;
     private Tuple3(T t, U u, V v) { _1 = t; _2 = u; _3 = v; }
-    public static <T,U,V> Tuple3<T,U,V> of(T first, U second, V third) {
-        return new Tuple3<>(first, second, third);
-    }
+
+    /** Public static factory method */
+    public static <T,U,V> Tuple3<T,U,V> of(T first, U second, V third) { return new Tuple3<>(first, second, third); }
+
+    /** Returns the first field of the tuple */
     public T _1() { return _1; }
+
+    /** Returns the second field of the tuple */
     public U _2() { return _2; }
+
+    /** Returns the third field of the tuple */
     public V _3() { return _3; }
 
     @Override
-    public String toString() {
-        return new StringBuilder("(")
-                .append(_1).append(",")
-                .append(_2).append(",")
-                .append(_3).append(")").toString();
-    }
+    public String toString() { return "Tuple3(" + _1 + "," + _2 + "," + _3 + ")"; }
 
     @Override
     public boolean equals(Object other) {
         // Cheapest operation first...
         if (this == other) { return true; }
-        if ((other == null) ||
-            !(other instanceof Tuple3) ||
-            (this.hashCode() != other.hashCode())) {
-            return false;
-        }
+        if (!(other instanceof Tuple3)) { return false; }
         // Details...
         @SuppressWarnings("rawtypes") final Tuple3 that = (Tuple3) other;
 
-        if (this._1 == null) {
-            if (that._1 != null) { return false; }
-        } else if ( !this._1.equals(that._1) ) {
-            return false;
-        }
-
-        if (this._2 == null) {
-            if (that._2 != null) { return false; }
-        } else if ( !this._2.equals(that._2) ) {
-            return false;
-        }
-
-        if (this._3 == null) {
-            if (that._3 != null) { return false; }
-        } else if ( !this._3.equals(that._3) ) {
-            return false;
-        }
-        return true;
+        return Objects.equals(this._1, that._1()) &&
+               Objects.equals(this._2, that._2()) &&
+               Objects.equals(this._3, that._3());
     }
 
     @Override
     public int hashCode() {
-        int ret = 0;
-        if (_1 != null) { ret = _1.hashCode(); }
-        if (_2 != null) { ret ^= _2.hashCode(); }
-        if (_3 != null) { ret ^= _3.hashCode(); }
-        // If it's uninitialized, it's equal to every other uninitialized instance.
-        return ret;
+        // This matches Tuple2 which implements Entry which is specified in java.util.Map as part of the map contract.
+        return  ( (_1 == null ? 0 : _1.hashCode()) ^
+                  (_2 == null ? 0 : _2.hashCode()) ) +
+                (_3 == null ? 0 : _3.hashCode());
     }
 }
